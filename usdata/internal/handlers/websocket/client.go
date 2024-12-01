@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/gpr3211/seer/forex/pkg/model"
 	"github.com/gpr3211/seer/pkg/writer"
+	"github.com/gpr3211/seer/usdata/pkg/model"
 	// "github.com/joho/godotenv"
 )
 
@@ -28,7 +28,7 @@ func NewClient(timeout time.Duration) *Client {
 
 func (cfg *Config) initSocketChannels() {
 	cfg.SocketChannels = &SocketChannels{
-		OutChan: make(chan model.ForexTick, 250),
+		OutChan: make(chan model.CryptoTick),
 		ErrChan: make(chan error, 10),
 		Done:    make(chan struct{}),
 		Closed:  false,
@@ -38,7 +38,7 @@ func (cfg *Config) initSocketChannels() {
 
 type SocketChannels struct {
 	ErrChan chan error
-	OutChan chan model.ForexTick
+	OutChan chan model.CryptoTick
 	Done    chan struct{}
 	Closed  bool
 	Mutex   sync.Mutex
@@ -55,11 +55,11 @@ type Config struct {
 func NewConfig() *Config {
 	return &Config{
 		Client:  NewClient(1),
-		Symbols: []string{"EURUSD"},
+		Symbols: []string{"ETH-USD", "BTC-USD"},
 	}
 }
 
-func StartForex() error {
+func StartCrypto() error {
 
 	//	err := godotenv.Load()
 	//	if err != nil {
@@ -72,19 +72,21 @@ func StartForex() error {
 	//	fmt.Println(key)
 
 	cfg := NewConfig()
-	return cfg.startSocket()
+	cfg.startSocket()
+
+	return nil
 }
 
 func (cfg *Config) startSocket() error {
 	cfg.initSocketChannels()
 
-	path := "wss://ws.eodhistoricaldata.com/ws/forex?api_token=demo"
+	path := "wss://ws.eodhistoricaldata.com/ws/crypto?api_token=demo"
 	c, _, err := websocket.DefaultDialer.Dial(path, nil)
 	if err != nil {
 		return fmt.Errorf("websocket connection error: %v", err)
 	}
 	cfg.socket = c
-	fmt.Println("Starting Forex Client ... ")
+	fmt.Println("Starting Crypto Client ... ")
 	fmt.Println("Subscribing ...")
 
 	for _, s := range cfg.Symbols {
@@ -93,7 +95,7 @@ func (cfg *Config) startSocket() error {
 			log.Printf("Failed to sub")
 			return err
 		}
-		fmt.Printf("Forex :: %s  Sub complete", s)
+		fmt.Printf("Crypto:: %s  Sub complete\n", s)
 	}
 	go func() {
 		defer close(cfg.Done)
@@ -113,7 +115,7 @@ func (cfg *Config) startSocket() error {
 			switch v := tick.(type) {
 			case model.StatusMsg:
 				log.Printf("Status MSG: %s -- %s", v.Code, v.Message)
-			case model.ForexTick:
+			case model.CryptoTick:
 				writer.Writer.AddData(v)
 				//	fmt.Println("Crypto in")
 				//	cfg.OutChan <- v

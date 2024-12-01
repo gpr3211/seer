@@ -1,5 +1,7 @@
 package model
 
+import "strconv"
+
 type ForexType string
 
 const (
@@ -21,7 +23,25 @@ type ForexTick struct {
 	DailyChange string  `json:"dc"` // float64 (Percentage)
 	DailyDiff   string  `json:"dd"` // float64 (Percentage)
 	Timestamp   int64   `json:"t"`  // int64
-	ForexType
+	ForexType   `json:"-"`
+}
+
+func (f ForexTick) GetPrice() float64 {
+	return f.AskPrice - f.BidPrice
+}
+
+func (f ForexTick) GetSym() string {
+	return f.Symbol
+}
+
+func (f ForexTick) IsWebsocket() {}
+
+func (f ForexTick) GetTime() int64 {
+	return f.Timestamp
+}
+func (f ForexTick) GetVol() float64 {
+	out, _ := strconv.ParseFloat(f.Quantity, 64)
+	return out
 }
 
 func (f ForexTick) GetType() ForexType {
@@ -29,10 +49,10 @@ func (f ForexTick) GetType() ForexType {
 }
 
 type StatusMsg struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Time    int64  `json:"-"`
-	ForexType
+	Code      string `json:"code"`
+	Message   string `json:"message"`
+	Time      int64  `json:"-"`
+	ForexType `json:"-"`
 }
 
 func (f StatusMsg) GetType() ForexType {
@@ -40,9 +60,9 @@ func (f StatusMsg) GetType() ForexType {
 }
 
 type SubMsgs struct {
-	Action  string `json:"action"`
-	Symbols string `json:"symbols"` // Changed to string from []string
-	ForexType
+	Action    string `json:"action"`
+	Symbols   string `json:"symbols"` // Changed to string from []string
+	ForexType `json:"-"`
 }
 
 func (f SubMsgs) GetType() ForexType {

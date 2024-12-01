@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/gorilla/websocket"
-	"github.com/gpr3211/seer/forex/pkg/model"
+	"github.com/gpr3211/seer/crypto/pkg/model"
 )
 
 func (c *Config) Subscribe(conn *websocket.Conn, s string) error {
