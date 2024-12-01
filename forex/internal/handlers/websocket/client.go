@@ -66,12 +66,10 @@ func NewConfig() *Config {
 }
 
 func StartForex() error {
-
 	err := godotenv.Load()
 	if err != nil {
 		fmt.Println("failed to load")
 	}
-
 	dbUrl := os.Getenv("CONN_STRING")
 
 	_, err = sql.Open("postgres", dbUrl)
@@ -88,30 +86,30 @@ func StartForex() error {
 	return cfg.startSocket()
 }
 
-var w = writer.NewPeriodicDataWriter(
-	time.Minute, // Write interval
-	10000,       // Max buffer size
-	"FOREX",
-	func(symbolBuffers map[string][]batcher.SocketMsg) error {
-		for symbol, buffer := range symbolBuffers {
-			fmt.Printf("Writing %d Forex ticks for symbol %s\n", len(buffer), symbol)
-			batches, err := batcher.BatchTicks(buffer, 1)
-			if err == -1 {
-				return errors.New("Failed to batch ticks")
-			}
-			for _, batch := range batches {
-				stats := batcher.GetBatchStatistics(batch, 1)
-				fmt.Println("INSERT ADDING Forex STATS ")
-				//	InsertBatch(stats, cfg.DB, exhange())
-				fmt.Println("Insert complete Forex :", stats.Symbol, stats.EndTime)
-			}
-		}
-		return nil
-	},
-)
-
 func (cfg *Config) startSocket() error {
 	cfg.initSocketChannels()
+
+	var w = writer.NewPeriodicDataWriter(
+		time.Minute, // Write interval
+		10000,       // Max buffer size
+		"FOREX",
+		func(symbolBuffers map[string][]batcher.SocketMsg) error {
+			for symbol, buffer := range symbolBuffers {
+				fmt.Printf("Writing %d Forex ticks for symbol %s\n", len(buffer), symbol)
+				batches, err := batcher.BatchTicks(buffer, 1)
+				if err == -1 {
+					return errors.New("Failed to batch ticks")
+				}
+				for _, batch := range batches {
+					stats := batcher.GetBatchStatistics(batch, 1)
+					fmt.Println("INSERT ADDING Forex STATS ")
+					batcher.InsertBatch(stats, cfg.DB, "FOREX")
+					fmt.Println("Insert complete Forex :", stats.Symbol, stats.EndTime)
+				}
+			}
+			return nil
+		},
+	)
 
 	path := "wss://ws.eodhistoricaldata.com/ws/forex?api_token=demo"
 	c, _, err := websocket.DefaultDialer.Dial(path, nil)

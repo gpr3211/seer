@@ -41,28 +41,6 @@ func (cfg *Config) initSocketChannels() {
 
 }
 
-var w = writer.NewPeriodicDataWriter(
-	time.Minute, // Write interval
-	10000,       // Max buffer size
-	"US",
-	func(symbolBuffers map[string][]batcher.SocketMsg) error {
-		for symbol, buffer := range symbolBuffers {
-			fmt.Printf("Writing %d UU-Trade ticks for symbol %s\n", len(buffer), symbol)
-			batches, err := batcher.BatchTicks(buffer, 1)
-			if err == -1 {
-				return errors.New("Failed to batch ticks")
-			}
-			for _, batch := range batches {
-				stats := batcher.GetBatchStatistics(batch, 1)
-				fmt.Println("INSERT ADDING US-Trade STATS ")
-				//	InsertBatch(stats, cfg.DB, exhange())
-				fmt.Println("Insert complete US-Trade:", stats.Symbol, stats.EndTime)
-			}
-		}
-		return nil
-	},
-)
-
 type SocketChannels struct {
 	ErrChan chan error
 	OutChan chan model.USTradeTick
@@ -87,13 +65,12 @@ func NewConfig() *Config {
 	}
 }
 
+// StartCrypto starts the Crypto websocket Top
 func StartCrypto() error {
-
 	err := godotenv.Load()
 	if err != nil {
 		fmt.Println("failed to load")
 	}
-
 	dbUrl := os.Getenv("CONN_STRING")
 	fmt.Println(dbUrl)
 	_ = os.Getenv("KEY")
@@ -111,8 +88,31 @@ func StartCrypto() error {
 	return nil
 }
 
+// startSocket used in startCrypto
 func (cfg *Config) startSocket() error {
 	cfg.initSocketChannels()
+
+	var w = writer.NewPeriodicDataWriter(
+		time.Minute, // Write interval
+		10000,       // Max buffer size
+		"US",
+		func(symbolBuffers map[string][]batcher.SocketMsg) error {
+			for symbol, buffer := range symbolBuffers {
+				fmt.Printf("Writing %d UU-Trade ticks for symbol %s\n", len(buffer), symbol)
+				batches, err := batcher.BatchTicks(buffer, 1)
+				if err == -1 {
+					return errors.New("Failed to batch ticks")
+				}
+				for _, batch := range batches {
+					stats := batcher.GetBatchStatistics(batch, 1)
+					fmt.Println("INSERT ADDING US-Trade STATS ")
+					batcher.InsertBatch(stats, cfg.DB, "US")
+					fmt.Println("Insert complete US-Trade:", stats.Symbol, stats.EndTime)
+				}
+			}
+			return nil
+		},
+	)
 
 	path := "wss://ws.eodhistoricaldata.com/ws/us?api_token=demo"
 	c, _, err := websocket.DefaultDialer.Dial(path, nil)
