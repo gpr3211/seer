@@ -1,17 +1,22 @@
 package websocket
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
+	_ "github.com/lib/pq"
 	"log"
 	"net/http"
-	//	"os"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/gpr3211/seer/pkg/batcher"
+	"github.com/gpr3211/seer/pkg/database"
 	"github.com/gpr3211/seer/pkg/writer"
 	"github.com/gpr3211/seer/usdata/pkg/model"
-	// "github.com/joho/godotenv"
+	"github.com/joho/godotenv"
 )
 
 type Client struct {
@@ -36,6 +41,28 @@ func (cfg *Config) initSocketChannels() {
 
 }
 
+var w = writer.NewPeriodicDataWriter(
+	time.Minute, // Write interval
+	10000,       // Max buffer size
+	"US",
+	func(symbolBuffers map[string][]batcher.SocketMsg) error {
+		for symbol, buffer := range symbolBuffers {
+			fmt.Printf("Writing %d UU-Trade ticks for symbol %s\n", len(buffer), symbol)
+			batches, err := batcher.BatchTicks(buffer, 1)
+			if err == -1 {
+				return errors.New("Failed to batch ticks")
+			}
+			for _, batch := range batches {
+				stats := batcher.GetBatchStatistics(batch, 1)
+				fmt.Println("INSERT ADDING US-Trade STATS ")
+				//	InsertBatch(stats, cfg.DB, exhange())
+				fmt.Println("Insert complete US-Trade:", stats.Symbol, stats.EndTime)
+			}
+		}
+		return nil
+	},
+)
+
 type SocketChannels struct {
 	ErrChan chan error
 	OutChan chan model.USTradeTick
@@ -45,6 +72,7 @@ type SocketChannels struct {
 }
 
 type Config struct {
+	DB      *database.Queries
 	Client  *Client
 	Symbols []string
 	key     string
@@ -61,15 +89,21 @@ func NewConfig() *Config {
 
 func StartCrypto() error {
 
-	//	err := godotenv.Load()
-	//	if err != nil {
-	//		fmt.Println("failed to load")
-	//	}
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("failed to load")
+	}
 
-	//	dbUrl := os.Getenv("CONN_STRING")
-	//	fmt.Println(dbUrl)
-	//	key := os.Getenv("KEY")
-	//	fmt.Println(key)
+	dbUrl := os.Getenv("CONN_STRING")
+	fmt.Println(dbUrl)
+	_ = os.Getenv("KEY")
+
+	_, err = sql.Open("postgres", dbUrl)
+	if err != nil {
+		log.Fatalf("%v", err)
+	} else {
+		fmt.Println("DB OPEN SUCC")
+	}
 
 	cfg := NewConfig()
 	cfg.startSocket()
@@ -116,7 +150,7 @@ func (cfg *Config) startSocket() error {
 			case model.StatusMsg:
 				log.Printf("Status MSG: %s -- %s", v.Code, v.Message)
 			case model.USTradeTick:
-				writer.Writer.AddData(v)
+				w.AddData(v)
 				//	fmt.Println("Crypto in")
 				//	cfg.OutChan <- v
 				//	fmt.Println(v.Symbol, v.Quantity, v.DailyChange, v.Price, v.Timestamp)

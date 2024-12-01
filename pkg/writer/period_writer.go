@@ -2,7 +2,6 @@ package writer
 
 import (
 	"errors"
-	"fmt"
 	"github.com/gpr3211/seer/pkg/batcher"
 	"log"
 	"sync"
@@ -16,18 +15,21 @@ type PeriodicDataWriter struct {
 	writeInterval time.Duration
 	maxBufferSize int
 	writeFn       func(map[string][]batcher.SocketMsg) error
+	socketType    string
 }
 
 // NewPeriodicDataWriter creates a new periodic data writer
 func NewPeriodicDataWriter(
 	writeInterval time.Duration,
 	maxBufferSize int,
+	exchange string,
 	writeFn func(map[string][]batcher.SocketMsg) error) *PeriodicDataWriter {
 	pw := &PeriodicDataWriter{
 		buffer:        make(map[string][]batcher.SocketMsg),
 		writeInterval: writeInterval,
 		maxBufferSize: maxBufferSize,
 		writeFn:       writeFn,
+		socketType:    exchange,
 	}
 
 	go pw.startPeriodicWrite()
@@ -152,27 +154,6 @@ func processBatchesAndSave(ticks []batcher.SocketMsg, saveFn func(batcher.BatchS
 	}
 	return nil
 }
-
-var Writer = NewPeriodicDataWriter(
-	time.Minute, // Write interval
-	10000,       // Max buffer size
-	func(symbolBuffers map[string][]batcher.SocketMsg) error {
-		for symbol, buffer := range symbolBuffers {
-			fmt.Printf("Writing %d ticks for symbol %s\n", len(buffer), symbol)
-			batches, err := batcher.BatchTicks(buffer, 1)
-			if err == -1 {
-				return errors.New("Failed to batch ticks")
-			}
-			for _, batch := range batches {
-				stats := batcher.GetBatchStatistics(batch, 1)
-				fmt.Println("INSERT ADDING STATS FUNC")
-				//	InsertBatch(stats, cfg.DB, exhange())
-				fmt.Println("Insert complete for:", stats.Symbol, stats.EndTime)
-			}
-		}
-		return nil
-	},
-)
 
 // TOOD EXAMPLESDSADASD
 /*
