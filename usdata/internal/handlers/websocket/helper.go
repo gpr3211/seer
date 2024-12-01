@@ -14,18 +14,13 @@ func UnmarshalMsg(data []byte) (interface{}, error) {
 
 	// Check for distinctive fields to determine type
 	_, hasStatusMsg := raw["status_code"]
-	_, hasCondition := raw["c"]
 	_, hasMessaMsg := raw["message"]
 	if hasStatusMsg && hasMessaMsg {
 		var status model.StatusMsg
 		err := json.Unmarshal(data, &status)
 		return status, err
 	}
-
-	if hasCondition {
-		var trade model.UsTradeTick
-		err := json.Unmarshal(data, &trade)
-		return trade, err
-	}
-	return forex, err
+	var trade model.USTradeTick
+	err := json.Unmarshal(data, &trade)
+	return trade, err
 }

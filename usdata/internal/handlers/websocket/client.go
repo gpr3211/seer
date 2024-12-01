@@ -28,7 +28,7 @@ func NewClient(timeout time.Duration) *Client {
 
 func (cfg *Config) initSocketChannels() {
 	cfg.SocketChannels = &SocketChannels{
-		OutChan: make(chan model.CryptoTick),
+		OutChan: make(chan model.USTradeTick),
 		ErrChan: make(chan error, 10),
 		Done:    make(chan struct{}),
 		Closed:  false,
@@ -38,7 +38,7 @@ func (cfg *Config) initSocketChannels() {
 
 type SocketChannels struct {
 	ErrChan chan error
-	OutChan chan model.CryptoTick
+	OutChan chan model.USTradeTick
 	Done    chan struct{}
 	Closed  bool
 	Mutex   sync.Mutex
@@ -55,7 +55,7 @@ type Config struct {
 func NewConfig() *Config {
 	return &Config{
 		Client:  NewClient(1),
-		Symbols: []string{"ETH-USD", "BTC-USD"},
+		Symbols: []string{"TSLA", "AAPL", "MSFT"},
 	}
 }
 
@@ -80,13 +80,13 @@ func StartCrypto() error {
 func (cfg *Config) startSocket() error {
 	cfg.initSocketChannels()
 
-	path := "wss://ws.eodhistoricaldata.com/ws/crypto?api_token=demo"
+	path := "wss://ws.eodhistoricaldata.com/ws/us?api_token=demo"
 	c, _, err := websocket.DefaultDialer.Dial(path, nil)
 	if err != nil {
 		return fmt.Errorf("websocket connection error: %v", err)
 	}
 	cfg.socket = c
-	fmt.Println("Starting Crypto Client ... ")
+	fmt.Println("Starting US-Trade Client ... ")
 	fmt.Println("Subscribing ...")
 
 	for _, s := range cfg.Symbols {
@@ -115,7 +115,7 @@ func (cfg *Config) startSocket() error {
 			switch v := tick.(type) {
 			case model.StatusMsg:
 				log.Printf("Status MSG: %s -- %s", v.Code, v.Message)
-			case model.CryptoTick:
+			case model.USTradeTick:
 				writer.Writer.AddData(v)
 				//	fmt.Println("Crypto in")
 				//	cfg.OutChan <- v
