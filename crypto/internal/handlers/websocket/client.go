@@ -1,17 +1,21 @@
 package websocket
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
-	"log"
-	"net/http"
-	//	"os"
-	"sync"
-	"time"
-
 	"github.com/gorilla/websocket"
 	"github.com/gpr3211/seer/crypto/pkg/model"
+	"github.com/gpr3211/seer/pkg/batcher"
+	"github.com/gpr3211/seer/pkg/database"
 	"github.com/gpr3211/seer/pkg/writer"
-	// "github.com/joho/godotenv"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
+	"log"
+	"net/http"
+	"os"
+	"sync"
+	"time"
 )
 
 type Client struct {
@@ -45,6 +49,7 @@ type SocketChannels struct {
 }
 
 type Config struct {
+	DB      *database.Queries
 	Client  *Client
 	Symbols []string
 	key     string
@@ -59,26 +64,55 @@ func NewConfig() *Config {
 	}
 }
 
+// StartCrypto starts the crypto websocket Highest level.
 func StartCrypto() error {
 
-	//	err := godotenv.Load()
-	//	if err != nil {
-	//		fmt.Println("failed to load")
-	//	}
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("failed to load")
+	}
+	dbUrl := os.Getenv("CONN_STRING")
+	fmt.Println(dbUrl)
 
-	//	dbUrl := os.Getenv("CONN_STRING")
-	//	fmt.Println(dbUrl)
-	//	key := os.Getenv("KEY")
-	//	fmt.Println(key)
+	dab, err := sql.Open("postgres", dbUrl)
+	if err != nil {
+		log.Fatalf("%v", err)
+	} else {
+		fmt.Println("DB OPEN SUCC")
+	}
 
 	cfg := NewConfig()
+	dbQueries := database.New(dab)
+	cfg.DB = dbQueries
 	cfg.startSocket()
 
+	_ = os.Getenv("KEY")
 	return nil
 }
 
 func (cfg *Config) startSocket() error {
 	cfg.initSocketChannels()
+	var w = writer.NewPeriodicDataWriter(
+		time.Minute, // Write interval
+		10000,       // Max buffer size
+		"CC",
+		func(symbolBuffers map[string][]batcher.SocketMsg) error {
+			for symbol, buffer := range symbolBuffers {
+				fmt.Printf("Writing %d Crypto ticks for symbol %s\n", len(buffer), symbol)
+				batches, err := batcher.BatchTicks(buffer, 1)
+				if err == -1 {
+					return errors.New("Failed to batch ticks")
+				}
+				for _, batch := range batches {
+					stats := batcher.GetBatchStatistics(batch, 1)
+					fmt.Println("INSERT ADDING Crypto STATS ")
+					batcher.InsertBatch(stats, cfg.DB, "CC")
+					fmt.Println("Insert complete Crypto:", stats.Symbol, stats.EndTime)
+				}
+			}
+			return nil
+		},
+	)
 
 	path := "wss://ws.eodhistoricaldata.com/ws/crypto?api_token=demo"
 	c, _, err := websocket.DefaultDialer.Dial(path, nil)
@@ -86,6 +120,7 @@ func (cfg *Config) startSocket() error {
 		return fmt.Errorf("websocket connection error: %v", err)
 	}
 	cfg.socket = c
+
 	fmt.Println("Starting Crypto Client ... ")
 	fmt.Println("Subscribing ...")
 
@@ -116,7 +151,7 @@ func (cfg *Config) startSocket() error {
 			case model.StatusMsg:
 				log.Printf("Status MSG: %s -- %s", v.Code, v.Message)
 			case model.CryptoTick:
-				writer.Writer.AddData(v)
+				w.AddData(v)
 				//	fmt.Println("Crypto in")
 				//	cfg.OutChan <- v
 				//	fmt.Println(v.Symbol, v.Quantity, v.DailyChange, v.Price, v.Timestamp)

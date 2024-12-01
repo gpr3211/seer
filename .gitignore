@@ -1,0 +1,4 @@
+/usdata/cmd/.env
+/crypto/cmd/.env
+/forex/cmd/.env
+.env

@@ -1,10 +1,15 @@
 package batcher
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/gpr3211/seer/pkg/database"
 )
 
 type SocketMsg interface {
@@ -150,7 +155,7 @@ func GetBatchStatistics(batch TimeBatch, period int) BatchStats {
 
 // InsertBatch Insters a batchStat to DB
 // - InsertBatch(BatchStats, *databse.Queries)
-/*
+
 func InsertBatch(b BatchStats, db *database.Queries, exchange string) error {
 	processedBatchesMutex.Lock()
 	key := b.UniqueKey()
@@ -183,11 +188,10 @@ func InsertBatch(b BatchStats, db *database.Queries, exchange string) error {
 		PeriodMinutes: b.Period,
 	})
 	if err != nil {
-		clog.Println("Failed to add batch to DB", err)
+		log.Println("Failed to add batch to DB", err)
 		return err
 	} else {
 		fmt.Printf("Batch Stat Added Symbol: %s | Timestamp: %v | Period %v", b.Symbol, b.EndTime, b.Period)
 	}
 	return nil
 }
-*/
