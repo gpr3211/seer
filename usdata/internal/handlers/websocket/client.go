@@ -55,7 +55,7 @@ type Config struct {
 	Symbols []string
 	key     string
 	*SocketChannels
-	socket *websocket.Conn
+	Socket *websocket.Conn
 }
 
 func NewConfig() *Config {
@@ -66,7 +66,7 @@ func NewConfig() *Config {
 }
 
 // StartCrypto starts the Crypto websocket Top
-func StartCrypto() error {
+func StartUS(cfg *Config) error {
 	err := godotenv.Load()
 	if err != nil {
 		fmt.Println("failed to load")
@@ -75,17 +75,18 @@ func StartCrypto() error {
 	fmt.Println(dbUrl)
 	_ = os.Getenv("KEY")
 
-	_, err = sql.Open("postgres", dbUrl)
+	dab, err := sql.Open("postgres", dbUrl)
 	if err != nil {
 		log.Fatalf("%v", err)
 	} else {
 		fmt.Println("DB OPEN SUCC")
 	}
+	dbQueries := database.New(dab)
+	cfg.DB = dbQueries
+	//	fmt.Println(dbUrl)
+	_ = os.Getenv("KEY")
 
-	cfg := NewConfig()
-	cfg.startSocket()
-
-	return nil
+	return cfg.startSocket()
 }
 
 // startSocket used in startCrypto
@@ -119,7 +120,7 @@ func (cfg *Config) startSocket() error {
 	if err != nil {
 		return fmt.Errorf("websocket connection error: %v", err)
 	}
-	cfg.socket = c
+	cfg.Socket = c
 	fmt.Println("Starting US-Trade Client ... ")
 	fmt.Println("Subscribing ...")
 
@@ -134,7 +135,7 @@ func (cfg *Config) startSocket() error {
 	go func() {
 		defer close(cfg.Done)
 		for {
-			_, msg, err := cfg.socket.ReadMessage()
+			_, msg, err := cfg.Socket.ReadMessage()
 			if err != nil {
 				cfg.ErrChan <- fmt.Errorf("read error: %v", err)
 				return

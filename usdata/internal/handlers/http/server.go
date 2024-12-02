@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gpr3211/seer/crypto/internal/handlers/websocket"
+	"github.com/gpr3211/seer/usdata/internal/handlers/websocket"
 	_ "github.com/lib/pq"
 )
 
@@ -23,7 +23,7 @@ func NewServer(cfg *websocket.Config) *Server {
 
 	mux := http.NewServeMux()
 	srv := &http.Server{
-		Addr:         ":6969",
+		Addr:         ":6970",
 		Handler:      mux,
 		ReadTimeout:  time.Second * 30,
 		WriteTimeout: time.Second * 30,
@@ -43,8 +43,8 @@ func (s *Server) StartServer() {
 	defer s.wg.Done()
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /seer/crypto/v1/health", s.HandleReady)
-	mux.HandleFunc("POST /seer/crypto/v1/subscribe", s.HandleSubscriptions)
+	mux.HandleFunc("GET /seer/usdata/v1/health", s.HandleReady)
+	mux.HandleFunc("POST /seer/usdata/v1/subscribe", s.HandleSubscriptions)
 
 	s.Srv.Handler = mux
 
@@ -53,7 +53,7 @@ func (s *Server) StartServer() {
 
 	// Start server in goroutine
 	go func() {
-		fmt.Println("Starting Server on :6969")
+		fmt.Println("Starting Server on :6970")
 		if err := s.Srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			errChan <- err
 		}

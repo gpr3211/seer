@@ -3,18 +3,17 @@ package http
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
+	"github.com/gpr3211/seer/usdata"
+	"github.com/gpr3211/seer/usdata/pkg/model"
+	_ "github.com/lib/pq"
 	"log"
 	"net/http"
-
-	"github.com/gorilla/websocket"
-	"github.com/gpr3211/seer/crypto"
-	"github.com/gpr3211/seer/crypto/pkg/model"
-	_ "github.com/lib/pq"
 )
 
 func (s *Server) HandleReady(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		respondWithError(w, crypto.EzError(405)("Wrong Request Method"))
+		respondWithError(w, usdata.EzError(405)("Wrong Request Method"))
 		return
 	}
 	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
@@ -24,7 +23,7 @@ func (s *Server) HandleReady(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) HandleSubscriptions(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		respondWithError(w, crypto.EzError(405)("you done goofed kid"))
+		respondWithError(w, usdata.EzError(405)("you done goofed kid"))
 		return
 	}
 	type parameters struct {
@@ -35,13 +34,12 @@ func (s *Server) HandleSubscriptions(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&param)
 	if err != nil {
-		respondWithError(w, crypto.EzError(401)("wrong json format"))
-		return
+		respondWithError(w, usdata.EzError(401)("wrong json format"))
 	}
-	params := model.SubMsgs{Action: param.Action, Symbols: param.Symbols, CryptoType: "CC"}
+	params := model.SubMsgs{Action: param.Action, Symbols: param.Symbols, USTradeType: "US"}
 
 	if params.Action != "subscribe" && params.Action != "unsubscribe" {
-		respondWithError(w, crypto.BadInput)
+		respondWithError(w, usdata.BadInput)
 		return
 	}
 
@@ -69,8 +67,7 @@ func (s *Server) HandleSubscriptions(w http.ResponseWriter, r *http.Request) {
 	}
 	return
 }
-
-func respondWithError(w http.ResponseWriter, Err crypto.APIError) {
+func respondWithError(w http.ResponseWriter, Err usdata.APIError) {
 	w.Header().Set("Content-type", "application/json")
 	dat, err := json.Marshal(Err)
 	if err != nil {

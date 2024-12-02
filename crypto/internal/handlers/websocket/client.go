@@ -61,7 +61,7 @@ type Config struct {
 func NewConfig() *Config {
 	return &Config{
 		Client:  NewClient(1),
-		Symbols: []string{"ETH-USD", "BTC-USD"},
+		Symbols: []string{},
 	}
 }
 
@@ -102,7 +102,6 @@ func (cfg *Config) startSocket() error {
 				}
 				for _, batch := range batches {
 					stats := batcher.GetBatchStatistics(batch, 1)
-					fmt.Println("INSERT ADDING Forex STATS ")
 					batcher.InsertBatch(stats, cfg.DB, "Crypto")
 					fmt.Println("Insert complete Cryto:", stats.Symbol, stats.EndTime)
 				}
@@ -121,7 +120,7 @@ func (cfg *Config) startSocket() error {
 	fmt.Println("Subscribing ...")
 
 	for _, s := range cfg.Symbols {
-		err := cfg.Subscribe(c, s)
+		err := cfg.Subscribe(s)
 		if err != nil {
 			log.Printf("Failed to sub")
 			return err

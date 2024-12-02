@@ -191,7 +191,7 @@ func InsertBatch(b BatchStats, db *database.Queries, exchange string) error {
 		log.Println("Failed to add batch to DB", err)
 		return err
 	} else {
-		fmt.Printf("Batch Stat Added Symbol: %s | Timestamp: %v | Period %v", b.Symbol, b.EndTime, b.Period)
+		//		fmt.Printf("Batch Stat Added Symbol: %s | Timestamp: %v | Period %v", b.Symbol, b.EndTime, b.Period)
 	}
 	return nil
 }

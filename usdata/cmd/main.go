@@ -1,15 +1,15 @@
 package main
 
 import (
-	"log"
-
+	server "github.com/gpr3211/seer/usdata/internal/handlers/http"
 	"github.com/gpr3211/seer/usdata/internal/handlers/websocket"
 )
 
 func main() {
-	err := websocket.StartCrypto()
-	if err != nil {
-		log.Fatalln("Failed to start Forex")
-	}
+	cfg := websocket.NewConfig()
+	srv := server.NewServer(cfg)
+
+	go srv.StartServer()
+	websocket.StartUS(cfg)
 
 }
