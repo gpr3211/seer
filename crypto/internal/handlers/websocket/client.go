@@ -4,17 +4,19 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	_ "github.com/lib/pq"
 	"log"
 	"net/http"
 	"os"
 	"sync"
 	"time"
 
+	_ "github.com/lib/pq"
+
 	"github.com/gorilla/websocket"
 	"github.com/gpr3211/seer/crypto/pkg/model"
 	"github.com/gpr3211/seer/pkg/batcher"
 	"github.com/gpr3211/seer/pkg/database"
+	"github.com/gpr3211/seer/pkg/discovery/consul"
 	"github.com/gpr3211/seer/pkg/writer"
 	"github.com/joho/godotenv"
 )
@@ -48,6 +50,13 @@ type SocketChannels struct {
 	Closed  bool
 	Mutex   sync.Mutex
 }
+type Gateway struct {
+	registry *consul.Registry
+}
+
+func New(registry *consul.Registry) *Gateway {
+	return &Gateway{registry}
+}
 
 type Config struct {
 	DB      *database.Queries
@@ -61,9 +70,11 @@ type Config struct {
 func NewConfig() *Config {
 	return &Config{
 		Client:  NewClient(1),
-		Symbols: []string{},
+		Symbols: []string{"BTC-USD", "ETH-USD"},
 	}
 }
+
+// TODO add ping from client to server to check client health
 
 func StartCrypto(cfg *Config) error {
 	err := godotenv.Load()
@@ -105,7 +116,7 @@ func (cfg *Config) startSocket() error {
 			log.Printf("Failed to sub")
 			return err
 		}
-		fmt.Printf("Forex :: %s  Sub complete", s)
+		fmt.Printf("Forex :: %s  Sub complete\n", s)
 	}
 	go func() {
 		var w = writer.NewPeriodicDataWriter(
@@ -114,7 +125,7 @@ func (cfg *Config) startSocket() error {
 			"CC",
 			func(symbolBuffers map[string][]batcher.SocketMsg) error {
 				for symbol, buffer := range symbolBuffers {
-					fmt.Printf("Writing %d Crypto ticks for symbol %s\n", len(buffer), symbol)
+					fmt.Printf("Writing %d Crypto ticks for symbol %s Time: %v\n", len(buffer), symbol, time.Now().Local())
 					batches, err := batcher.BatchTicks(buffer, 1)
 					if err == -1 {
 						return errors.New("Failed to batch ticks")
@@ -122,7 +133,6 @@ func (cfg *Config) startSocket() error {
 					for _, batch := range batches {
 						stats := batcher.GetBatchStatistics(batch, 1)
 						batcher.InsertBatch(stats, cfg.DB, "Crypto")
-						fmt.Println("Insert complete Cryto:", stats.Symbol, stats.EndTime)
 					}
 				}
 				return nil

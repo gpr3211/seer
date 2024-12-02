@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gpr3211/seer/crypto/internal/handlers/websocket"
+	"github.com/gpr3211/seer/forex/internal/handlers/websocket"
 	_ "github.com/lib/pq"
 )
 
@@ -43,8 +43,8 @@ func (s *Server) StartServer() {
 	defer s.wg.Done()
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /seer/crypto/v1/health", s.HandleReady)
-	mux.HandleFunc("POST /seer/crypto/v1/subscribe", s.HandleSubscriptions)
+	mux.HandleFunc("GET /seer/forex/v1/health", s.HandleReady)
+	mux.HandleFunc("POST /seer/forex/v1/subscribe", s.HandleSubscriptions)
 
 	s.Srv.Handler = mux
 
