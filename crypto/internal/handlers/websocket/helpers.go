@@ -6,10 +6,12 @@ import (
 )
 
 func UnmarshalMsg(data []byte) (interface{}, error) {
+
 	var raw map[string]interface{}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
 	}
+
 	// Check for distinctive fields to determine type
 	_, hasStatusMsg := raw["status_code"]
 	_, hasMessaMsg := raw["message"]

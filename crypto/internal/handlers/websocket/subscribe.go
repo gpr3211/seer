@@ -35,7 +35,7 @@ func (c Config) Unsub(symbol string) error {
 		log.Println("Failed to parse sub msg")
 		return fmt.Errorf("error marshaling subscription: %v", err)
 	}
-	if err := c.socket.WriteMessage(websocket.TextMessage, out); err != nil {
+	if err := c.Socket.WriteMessage(websocket.TextMessage, out); err != nil {
 		return fmt.Errorf("error subscribing to %s: %v", symbol, err)
 	}
 	return nil

@@ -4,18 +4,19 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/gorilla/websocket"
-	"github.com/gpr3211/seer/crypto/pkg/model"
-	"github.com/gpr3211/seer/pkg/batcher"
-	"github.com/gpr3211/seer/pkg/database"
-	"github.com/gpr3211/seer/pkg/writer"
-	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"log"
 	"net/http"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
+	"github.com/gpr3211/seer/crypto/pkg/model"
+	"github.com/gpr3211/seer/pkg/batcher"
+	"github.com/gpr3211/seer/pkg/database"
+	"github.com/gpr3211/seer/pkg/writer"
+	"github.com/joho/godotenv"
 )
 
 type Client struct {
@@ -32,7 +33,7 @@ func NewClient(timeout time.Duration) *Client {
 
 func (cfg *Config) initSocketChannels() {
 	cfg.SocketChannels = &SocketChannels{
-		OutChan: make(chan model.CryptoTick),
+		OutChan: make(chan model.CryptoTick, 250),
 		ErrChan: make(chan error, 10),
 		Done:    make(chan struct{}),
 		Closed:  false,
@@ -54,7 +55,7 @@ type Config struct {
 	Symbols []string
 	key     string
 	*SocketChannels
-	socket *websocket.Conn
+	Socket *websocket.Conn
 }
 
 func NewConfig() *Config {
@@ -64,15 +65,12 @@ func NewConfig() *Config {
 	}
 }
 
-// StartCrypto starts the crypto websocket Highest level.
-func StartCrypto() error {
-
+func StartCrypto(cfg *Config) error {
 	err := godotenv.Load()
 	if err != nil {
 		fmt.Println("failed to load")
 	}
 	dbUrl := os.Getenv("CONN_STRING")
-	fmt.Println(dbUrl)
 
 	dab, err := sql.Open("postgres", dbUrl)
 	if err != nil {
@@ -80,18 +78,17 @@ func StartCrypto() error {
 	} else {
 		fmt.Println("DB OPEN SUCC")
 	}
-
-	cfg := NewConfig()
 	dbQueries := database.New(dab)
 	cfg.DB = dbQueries
-	cfg.startSocket()
-
+	//	fmt.Println(dbUrl)
 	_ = os.Getenv("KEY")
-	return nil
+
+	return cfg.startSocket()
 }
 
 func (cfg *Config) startSocket() error {
 	cfg.initSocketChannels()
+
 	var w = writer.NewPeriodicDataWriter(
 		time.Minute, // Write interval
 		10000,       // Max buffer size
@@ -105,9 +102,9 @@ func (cfg *Config) startSocket() error {
 				}
 				for _, batch := range batches {
 					stats := batcher.GetBatchStatistics(batch, 1)
-					fmt.Println("INSERT ADDING Crypto STATS ")
-					batcher.InsertBatch(stats, cfg.DB, "CC")
-					fmt.Println("Insert complete Crypto:", stats.Symbol, stats.EndTime)
+					fmt.Println("INSERT ADDING Forex STATS ")
+					batcher.InsertBatch(stats, cfg.DB, "Crypto")
+					fmt.Println("Insert complete Cryto:", stats.Symbol, stats.EndTime)
 				}
 			}
 			return nil
@@ -119,8 +116,7 @@ func (cfg *Config) startSocket() error {
 	if err != nil {
 		return fmt.Errorf("websocket connection error: %v", err)
 	}
-	cfg.socket = c
-
+	cfg.Socket = c
 	fmt.Println("Starting Crypto Client ... ")
 	fmt.Println("Subscribing ...")
 
@@ -130,12 +126,12 @@ func (cfg *Config) startSocket() error {
 			log.Printf("Failed to sub")
 			return err
 		}
-		fmt.Printf("Crypto:: %s  Sub complete\n", s)
+		fmt.Printf("Forex :: %s  Sub complete", s)
 	}
 	go func() {
 		defer close(cfg.Done)
 		for {
-			_, msg, err := cfg.socket.ReadMessage()
+			_, msg, err := cfg.Socket.ReadMessage()
 			if err != nil {
 				cfg.ErrChan <- fmt.Errorf("read error: %v", err)
 				return
@@ -149,7 +145,7 @@ func (cfg *Config) startSocket() error {
 
 			switch v := tick.(type) {
 			case model.StatusMsg:
-				log.Printf("Status MSG: %s -- %s", v.Code, v.Message)
+				log.Printf("Status MSG:  Code: %s  Type: %v Msg: %s Time: %v", v.Code, v.GetType(), v.Message, v.Time)
 			case model.CryptoTick:
 				w.AddData(v)
 				//	fmt.Println("Crypto in")

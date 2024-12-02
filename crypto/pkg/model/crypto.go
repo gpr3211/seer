@@ -28,7 +28,7 @@ type CryptoTick struct {
 }
 
 func (f CryptoTick) GetPrice() float64 {
-	out, _ := strconv.ParseFloat(f.Quantity, 64)
+	out, _ := strconv.ParseFloat(f.Price, 64)
 	return out
 }
 
