@@ -19,11 +19,11 @@ type Server struct {
 	cancelChan context.CancelFunc
 }
 
-func NewServer(cfg *websocket.Config) *Server {
+func NewServer(port string, cfg *websocket.Config) *Server {
 
 	mux := http.NewServeMux()
 	srv := &http.Server{
-		Addr:         ":6970",
+		Addr:         ":" + port,
 		Handler:      mux,
 		ReadTimeout:  time.Second * 30,
 		WriteTimeout: time.Second * 30,
