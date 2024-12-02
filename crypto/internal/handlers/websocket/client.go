@@ -78,6 +78,7 @@ func StartCrypto(cfg *Config) error {
 	} else {
 		fmt.Println("DB OPEN SUCC")
 	}
+	defer dab.Close()
 	dbQueries := database.New(dab)
 	cfg.DB = dbQueries
 	//	fmt.Println(dbUrl)
@@ -88,27 +89,6 @@ func StartCrypto(cfg *Config) error {
 
 func (cfg *Config) startSocket() error {
 	cfg.initSocketChannels()
-
-	var w = writer.NewPeriodicDataWriter(
-		time.Minute, // Write interval
-		10000,       // Max buffer size
-		"CC",
-		func(symbolBuffers map[string][]batcher.SocketMsg) error {
-			for symbol, buffer := range symbolBuffers {
-				fmt.Printf("Writing %d Crypto ticks for symbol %s\n", len(buffer), symbol)
-				batches, err := batcher.BatchTicks(buffer, 1)
-				if err == -1 {
-					return errors.New("Failed to batch ticks")
-				}
-				for _, batch := range batches {
-					stats := batcher.GetBatchStatistics(batch, 1)
-					batcher.InsertBatch(stats, cfg.DB, "Crypto")
-					fmt.Println("Insert complete Cryto:", stats.Symbol, stats.EndTime)
-				}
-			}
-			return nil
-		},
-	)
 
 	path := "wss://ws.eodhistoricaldata.com/ws/crypto?api_token=demo"
 	c, _, err := websocket.DefaultDialer.Dial(path, nil)
@@ -128,6 +108,27 @@ func (cfg *Config) startSocket() error {
 		fmt.Printf("Forex :: %s  Sub complete", s)
 	}
 	go func() {
+		var w = writer.NewPeriodicDataWriter(
+			time.Minute, // Write interval
+			10000,       // Max buffer size
+			"CC",
+			func(symbolBuffers map[string][]batcher.SocketMsg) error {
+				for symbol, buffer := range symbolBuffers {
+					fmt.Printf("Writing %d Crypto ticks for symbol %s\n", len(buffer), symbol)
+					batches, err := batcher.BatchTicks(buffer, 1)
+					if err == -1 {
+						return errors.New("Failed to batch ticks")
+					}
+					for _, batch := range batches {
+						stats := batcher.GetBatchStatistics(batch, 1)
+						batcher.InsertBatch(stats, cfg.DB, "Crypto")
+						fmt.Println("Insert complete Cryto:", stats.Symbol, stats.EndTime)
+					}
+				}
+				return nil
+			},
+		)
+
 		defer close(cfg.Done)
 		for {
 			_, msg, err := cfg.Socket.ReadMessage()
