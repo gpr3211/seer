@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gpr3211/seer/pkg/clog"
 	"github.com/gpr3211/seer/pkg/database"
 )
 
@@ -175,6 +176,8 @@ func InsertBatch(b BatchStats, db *database.Queries, exchange string) error {
 		})
 	}
 
+	symId, err = db.GetTickerId(context.Background(), b.Symbol)
+
 	_, err = db.CreateBatchStat(context.Background(), database.CreateBatchStatParams{
 		ID:            uuid.New(),
 		SymID:         symId,
@@ -189,6 +192,7 @@ func InsertBatch(b BatchStats, db *database.Queries, exchange string) error {
 	})
 	if err != nil {
 		log.Println("Failed to add batch to DB", err)
+		clog.Println("Failed to add batch")
 		return err
 	} else {
 		//		fmt.Printf("Batch Stat Added Symbol: %s | Timestamp: %v | Period %v", b.Symbol, b.EndTime, b.Period)
