@@ -29,16 +29,16 @@ type TimeBatch struct {
 }
 
 type BatchStats struct {
-	Symbol        string
-	BatchSequence int64
-	StartTime     int64
-	EndTime       int64
-	Open          float64
-	High          float64
-	Low           float64
-	Close         float64
-	Volume        float64
-	Period        int32
+	Symbol        string  `json:"symbol"`
+	BatchSequence int64   `json:"sequence"`
+	StartTime     int64   `json:"start"`
+	EndTime       int64   `json:"end"`
+	Open          float64 `json:"open"`
+	High          float64 `json:"high"`
+	Low           float64 `json:"low"`
+	Close         float64 `json:"close"`
+	Volume        float64 `json:"volume"`
+	Period        int32   `json:"period"`
 }
 
 func (b BatchStats) UniqueKey() string {

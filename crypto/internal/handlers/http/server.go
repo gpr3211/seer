@@ -16,6 +16,7 @@ type Server struct {
 	Client     *websocket.Config
 	context    context.Context
 	wg         *sync.WaitGroup
+	mu         *sync.RWMutex
 	cancelChan context.CancelFunc
 }
 
@@ -35,6 +36,7 @@ func NewServer(port string, cfg *websocket.Config) *Server {
 		Client:     cfg,
 		context:    ctx,
 		wg:         &wg,
+		mu:         &sync.RWMutex{},
 		cancelChan: cancel,
 	}
 }
@@ -45,6 +47,7 @@ func (s *Server) StartServer() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /seer/crypto/v1/health", s.HandleReady)
 	mux.HandleFunc("POST /seer/crypto/v1/subscribe", s.HandleSubscriptions)
+	mux.HandleFunc("GET /seer/crypto/v1/buff", s.HandleStats)
 
 	s.Srv.Handler = mux
 

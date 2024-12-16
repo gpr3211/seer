@@ -72,7 +72,7 @@ func NewConfig() *Config {
 	return &Config{
 		Client:  NewClient(1),
 		Symbols: []string{"BTC-USD", "ETH-USD"},
-		Buffer:  make(map[string]batcher.BatchStats),
+		Buffer:  (map[string]batcher.BatchStats{}),
 	}
 }
 
@@ -134,6 +134,7 @@ func (cfg *Config) startSocket() error {
 					}
 					for _, batch := range batches {
 						stats := batcher.GetBatchStatistics(batch, 1)
+						cfg.Buffer[stats.Symbol] = stats
 						batcher.InsertBatch(stats, cfg.DB, "Crypto")
 					}
 				}
