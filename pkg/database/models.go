@@ -47,6 +47,17 @@ type Exchange struct {
 	OpMic     string
 }
 
+type ForexTick struct {
+	ID          uuid.UUID
+	SymID       uuid.UUID
+	AskPrice    string
+	BidPrice    string
+	Time        int64
+	DailyChange string
+	DailyDiff   string
+	CreatedAt   time.Time
+}
+
 type Symbol struct {
 	ID           uuid.UUID
 	CreatedAt    time.Time
@@ -57,4 +68,14 @@ type Symbol struct {
 	ExchangeID   uuid.UUID
 	Currency     string
 	Type         string
+}
+
+type UsTradeTick struct {
+	ID         uuid.UUID
+	SymID      uuid.UUID
+	Price      string
+	Time       int64
+	Conditions string
+	Volume     string
+	CreatedAt  time.Time
 }

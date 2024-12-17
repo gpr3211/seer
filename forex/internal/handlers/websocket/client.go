@@ -1,19 +1,24 @@
 package websocket
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
-	_ "github.com/lib/pq"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
+	_ "github.com/lib/pq"
 
 	"github.com/gorilla/websocket"
 	"github.com/gpr3211/seer/forex/pkg/model"
 	"github.com/gpr3211/seer/pkg/batcher"
+	"github.com/gpr3211/seer/pkg/clog"
 	"github.com/gpr3211/seer/pkg/database"
 	"github.com/gpr3211/seer/pkg/writer"
 	"github.com/joho/godotenv"
@@ -144,6 +149,7 @@ func (cfg *Config) startSocket() error {
 			case model.StatusMsg:
 				log.Printf("Status MSG:  Code: %s  Type: %v Msg: %s Time: %v", v.Code, v.GetType(), v.Message, v.Time)
 			case model.ForexTick:
+				cfg.SaveForexToDB(v)
 				w.AddData(v)
 				//	fmt.Println("Crypto in")
 				//	cfg.OutChan <- v
@@ -155,4 +161,27 @@ func (cfg *Config) startSocket() error {
 	// Block and wait
 	<-cfg.Done
 	return nil
+}
+
+// SaveForexToDB saves a forex tick to the forex_tick table
+// -- hard-coded symbol id bc demo account only allows for one.
+func (cfg *Config) SaveForexToDB(v model.ForexTick) error {
+	aP := strconv.FormatFloat(v.AskPrice, 'f', 64, 64)
+	bP := strconv.FormatFloat(v.BidPrice, 'f', 64, 64)
+	id, _ := uuid.FromBytes([]byte(`cbf0abfc-58ec-4de3-96f5-3da99939d732`))
+	_, err := cfg.DB.AddForexTick(context.Background(), database.AddForexTickParams{
+		ID:          uuid.New(),
+		Time:        v.Timestamp,
+		SymID:       id,
+		AskPrice:    aP,
+		BidPrice:    bP,
+		DailyDiff:   v.DailyDiff,
+		DailyChange: v.DailyChange,
+	})
+	if err != nil {
+		clog.Println("failed to save tick")
+		return err
+	}
+	return nil
+
 }

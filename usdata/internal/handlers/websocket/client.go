@@ -99,7 +99,7 @@ func (cfg *Config) startSocket() error {
 		"US",
 		func(symbolBuffers map[string][]batcher.SocketMsg) error {
 			for symbol, buffer := range symbolBuffers {
-				fmt.Printf("Writing %d UU-Trade ticks for symbol %s\n", len(buffer), symbol)
+				fmt.Printf("Writing %d US-Trade ticks for symbol %s\n", len(buffer), symbol)
 				batches, err := batcher.BatchTicks(buffer, 1)
 				if err == -1 {
 					return errors.New("Failed to batch ticks")
@@ -125,12 +125,12 @@ func (cfg *Config) startSocket() error {
 	fmt.Println("Subscribing ...")
 
 	for _, s := range cfg.Symbols {
-		err := cfg.Subscribe(c, s)
+		err := cfg.Subscribe(s)
 		if err != nil {
 			log.Printf("Failed to sub")
 			return err
 		}
-		fmt.Printf("Crypto:: %s  Sub complete\n", s)
+		fmt.Printf("USTRADE:: %s  Sub complete\n", s)
 	}
 	go func() {
 		defer close(cfg.Done)
@@ -154,7 +154,6 @@ func (cfg *Config) startSocket() error {
 				w.AddData(v)
 				//	fmt.Println("Crypto in")
 				//	cfg.OutChan <- v
-				//	fmt.Println(v.Symbol, v.Quantity, v.DailyChange, v.Price, v.Timestamp)
 			}
 		}
 	}()

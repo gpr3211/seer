@@ -1,7 +1,5 @@
 package model
 
-import "strconv"
-
 type USTradeType string
 
 const (
@@ -18,18 +16,18 @@ type USTrade interface {
 // USTradeTick is a response from a crypto exch
 type USTradeTick struct {
 	//	Exchange    Exchange `json:"e"`
-	Symbol      string `json:"s"`  // ex ETH-USD, BTC-USD
-	Price       string `json:"p"`  // float64
-	Quantity    string `json:"q"`  // float64
-	DailyChange string `json:"dc"` // float
-	DailyDiff   string `json:"dd"` // float
-	Timestamp   int64  `json:"t"`  // int64
-	USTradeType `json:"-"`
+	Symbol       string  `json:"s"`  // ex TSLA, BRB.K
+	Price        float64 `json:"p"`  // float64
+	Condition    []int   `json:"c"`  // status code ? TODO
+	Quantity     int     `json:"v"`  // float64
+	DarkPool     bool    `json:"dp"` // bool
+	MarketStatus string  `json:"ms"` // open/close/???
+	Timestamp    int64   `json:"t"`  // bool
+	USTradeType  `json:"-"`
 }
 
 func (f USTradeTick) GetPrice() float64 {
-	out, _ := strconv.ParseFloat(f.Quantity, 64)
-	return out
+	return f.Price
 }
 
 func (f USTradeTick) GetTime() int64 {
@@ -37,8 +35,7 @@ func (f USTradeTick) GetTime() int64 {
 }
 func (f USTradeTick) IsWebsocket() {}
 func (f USTradeTick) GetVol() float64 {
-	out, _ := strconv.ParseFloat(f.Quantity, 64)
-	return out
+	return float64(f.Quantity)
 }
 func (f USTradeTick) GetSym() string {
 	return f.Symbol

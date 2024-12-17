@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gpr3211/seer/pkg/clog"
 	"github.com/gpr3211/seer/pkg/database"
 )
 
@@ -28,16 +29,16 @@ type TimeBatch struct {
 }
 
 type BatchStats struct {
-	Symbol        string
-	BatchSequence int64
-	StartTime     int64
-	EndTime       int64
-	Open          float64
-	High          float64
-	Low           float64
-	Close         float64
-	Volume        float64
-	Period        int32
+	Symbol        string  `json:"symbol"`
+	BatchSequence int64   `json:"sequence"`
+	StartTime     int64   `json:"start"`
+	EndTime       int64   `json:"end"`
+	Open          float64 `json:"open"`
+	High          float64 `json:"high"`
+	Low           float64 `json:"low"`
+	Close         float64 `json:"close"`
+	Volume        float64 `json:"volume"`
+	Period        int32   `json:"period"`
 }
 
 func (b BatchStats) UniqueKey() string {
@@ -175,6 +176,8 @@ func InsertBatch(b BatchStats, db *database.Queries, exchange string) error {
 		})
 	}
 
+	symId, err = db.GetTickerId(context.Background(), b.Symbol)
+
 	_, err = db.CreateBatchStat(context.Background(), database.CreateBatchStatParams{
 		ID:            uuid.New(),
 		SymID:         symId,
@@ -189,6 +192,7 @@ func InsertBatch(b BatchStats, db *database.Queries, exchange string) error {
 	})
 	if err != nil {
 		log.Println("Failed to add batch to DB", err)
+		clog.Println("Failed to add batch")
 		return err
 	} else {
 		//		fmt.Printf("Batch Stat Added Symbol: %s | Timestamp: %v | Period %v", b.Symbol, b.EndTime, b.Period)

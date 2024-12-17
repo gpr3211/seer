@@ -50,3 +50,80 @@ func (q *Queries) AddCryptoTick(ctx context.Context, arg AddCryptoTickParams) (C
 	)
 	return i, err
 }
+
+const addForexTick = `-- name: AddForexTick :one
+INSERT INTO forex_tick(id, sym_id, ask_price,bid_price, time, daily_change, daily_diff)
+VALUES($1,$2,$3,$4,$5,$6,$7)
+    RETURNING id, sym_id, ask_price, bid_price, time, daily_change, daily_diff, created_at
+`
+
+type AddForexTickParams struct {
+	ID          uuid.UUID
+	SymID       uuid.UUID
+	AskPrice    string
+	BidPrice    string
+	Time        int64
+	DailyChange string
+	DailyDiff   string
+}
+
+func (q *Queries) AddForexTick(ctx context.Context, arg AddForexTickParams) (ForexTick, error) {
+	row := q.db.QueryRowContext(ctx, addForexTick,
+		arg.ID,
+		arg.SymID,
+		arg.AskPrice,
+		arg.BidPrice,
+		arg.Time,
+		arg.DailyChange,
+		arg.DailyDiff,
+	)
+	var i ForexTick
+	err := row.Scan(
+		&i.ID,
+		&i.SymID,
+		&i.AskPrice,
+		&i.BidPrice,
+		&i.Time,
+		&i.DailyChange,
+		&i.DailyDiff,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const addUsTick = `-- name: AddUsTick :one
+INSERT INTO us_trade_tick(id, sym_id, price, time, conditions, volume)
+VALUES($1,$2,$3,$4,$5,$6)
+RETURNING id, sym_id, price, time, conditions, volume, created_at
+`
+
+type AddUsTickParams struct {
+	ID         uuid.UUID
+	SymID      uuid.UUID
+	Price      string
+	Time       int64
+	Conditions string
+	Volume     string
+}
+
+func (q *Queries) AddUsTick(ctx context.Context, arg AddUsTickParams) (UsTradeTick, error) {
+	row := q.db.QueryRowContext(ctx, addUsTick,
+		arg.ID,
+		arg.SymID,
+		arg.Price,
+		arg.Time,
+		arg.Conditions,
+		arg.Volume,
+	)
+	var i UsTradeTick
+	err := row.Scan(
+		&i.ID,
+		&i.SymID,
+		&i.Price,
+		&i.Time,
+		&i.Conditions,
+		&i.Volume,
+		&i.CreatedAt,
+	)
+	return i, err
+}
