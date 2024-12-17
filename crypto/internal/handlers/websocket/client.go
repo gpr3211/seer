@@ -134,7 +134,9 @@ func (cfg *Config) startSocket() error {
 					}
 					for _, batch := range batches {
 						stats := batcher.GetBatchStatistics(batch, 1)
+
 						cfg.Buffer[stats.Symbol] = stats
+
 						batcher.InsertBatch(stats, cfg.DB, "Crypto")
 					}
 				}
