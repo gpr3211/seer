@@ -11,6 +11,31 @@ import (
 	"net/http"
 )
 
+func (s *Server) HandleStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		respondWithError(w, usdata.EzError(405)("Wrong Request Method"))
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	type params struct {
+		Symbol string `json:"symbol"`
+	}
+	param := params{}
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&param)
+	if err != nil {
+		respondWithError(w, usdata.EzError(401)("wrong json format"))
+		return
+	}
+
+	last := s.Client.Buffer[param.Symbol]
+	respondWithJSON(w, 200, last)
+	return
+
+}
+
 func (s *Server) HandleReady(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		respondWithError(w, usdata.EzError(405)("Wrong Request Method"))

@@ -56,12 +56,16 @@ type Config struct {
 	key     string
 	*SocketChannels
 	Socket *websocket.Conn
+
+	Buffer map[string]batcher.BatchStats
 }
 
 func NewConfig() *Config {
 	return &Config{
 		Client:  NewClient(1),
 		Symbols: []string{"TSLA", "AAPL", "MSFT"},
+
+		Buffer: (map[string]batcher.BatchStats{}),
 	}
 }
 
