@@ -4,13 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/websocket"
-	"github.com/gpr3211/seer/pkg/batcher"
 	"log"
 	"net/http"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
+	"github.com/gpr3211/seer/pkg/batcher"
+	"github.com/gpr3211/seer/tower"
 )
 
 type SocketServer struct {

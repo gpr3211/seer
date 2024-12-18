@@ -32,6 +32,7 @@ func (s *Server) HandleStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	last := s.Client.Buffer[param.Symbol]
+	// TODO check of exists
 	respondWithJSON(w, 200, last)
 	return
 

@@ -7,20 +7,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gpr3211/seer/forex/internal/handlers/websocket"
 	_ "github.com/lib/pq"
 )
 
 type Server struct {
 	Srv        *http.Server
-	Client     *websocket.Config
+	client     Client
 	context    context.Context
 	wg         *sync.WaitGroup
 	mu         *sync.RWMutex
 	cancelChan context.CancelFunc
 }
 
-func NewServer(port string, cfg *websocket.Config) *Server {
+func NewServer(port string) *Server {
 
 	mux := http.NewServeMux()
 	srv := &http.Server{
@@ -33,7 +32,7 @@ func NewServer(port string, cfg *websocket.Config) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Server{
 		Srv:        srv,
-		Client:     cfg,
+		client:     NewClient(),
 		context:    ctx,
 		wg:         &wg,
 		mu:         &sync.RWMutex{},
@@ -45,9 +44,10 @@ func (s *Server) StartServer() {
 	defer s.wg.Done()
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /seer/forex/v1/health", s.HandleReady)
-	mux.HandleFunc("POST /seer/forex/v1/subscribe", s.HandleSubscriptions)
-	mux.HandleFunc("GET /seer/forex/v1/buff", s.HandleStats)
+	//	mux.HandleFunc("GET /seer/forex/v1/health", s.HandleReady)
+	//	mux.HandleFunc("POST /seer/forex/v1/subscribe", s.HandleSubscriptions)
+
+	//		mux.HandleFunc("GET /seer/forex/v1/buff", s.HandleStats)
 	s.Srv.Handler = mux
 
 	// Channel to catch server errors
@@ -60,7 +60,6 @@ func (s *Server) StartServer() {
 			errChan <- err
 		}
 	}()
-
 	// Wait for context cancellation or server error
 	select {
 	case <-s.context.Done():

@@ -153,7 +153,7 @@ func (cfg *Config) startSocket() error {
 			case model.StatusMsg:
 				log.Printf("Status MSG:  Code: %s  Type: %v Msg: %s Time: %v", v.Code, v.GetType(), v.Message, v.Time)
 			case model.ForexTick:
-				cfg.SaveForexToDB(v)
+				//		cfg.SaveForexToDB(v)
 				w.AddData(v)
 				//	fmt.Println("Crypto in")
 				//	cfg.OutChan <- v
