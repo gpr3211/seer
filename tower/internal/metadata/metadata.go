@@ -10,8 +10,3 @@ const (
 	CC    string = "crypto"
 	US    string = "usdata"
 )
-
-func init() {
-    SvcHealth := 
-
-}

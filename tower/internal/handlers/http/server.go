@@ -43,6 +43,23 @@ func (s *Server) StartServer() {
 	s.wg.Add(1)
 	defer s.wg.Done()
 
+	ticker := time.NewTicker(30 * time.Second)
+	done := make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				fmt.Println("Tick ")
+				s.client.FetchAllStats()
+			}
+		}
+	}()
+
+	fmt.Println("Ticker stopped")
+
 	mux := http.NewServeMux()
 	//	mux.HandleFunc("GET /seer/forex/v1/health", s.HandleReady)
 	//	mux.HandleFunc("POST /seer/forex/v1/subscribe", s.HandleSubscriptions)

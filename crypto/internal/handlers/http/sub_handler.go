@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/gpr3211/seer/crypto"
 	"github.com/gpr3211/seer/crypto/pkg/model"
+	"github.com/gpr3211/seer/pkg/batcher"
 	_ "github.com/lib/pq"
 )
 
@@ -20,19 +21,15 @@ func (s *Server) HandleStats(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	type params struct {
-		Symbol string `json:"symbol"`
-	}
-	param := params{}
-	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&param)
-	if err != nil {
-		respondWithError(w, crypto.EzError(401)("wrong json format"))
-		return
+	//	last := s.Client.Buffer[param.Symbol]
+
+	out := []batcher.BatchStats{}
+	for _, k := range s.Client.Buffer {
+		out = append(out, k)
 	}
 
-	last := s.Client.Buffer[param.Symbol]
-	respondWithJSON(w, 200, last)
+	respondWithJSON(w, 200, out)
+
 	return
 
 }

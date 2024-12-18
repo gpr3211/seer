@@ -1,7 +1,10 @@
 package tower
 
 import (
+	"encoding/json"
 	"errors"
+	"log"
+	"net/http"
 )
 
 type (
@@ -37,6 +40,33 @@ func CreateError(code ErrorCode) func(Apierr) APIError {
 			Msg:        msg.Error(),
 		}
 	}
+}
+func RespondWithError(w http.ResponseWriter, Err APIError) {
+	w.Header().Set("Content-type", "application/json")
+	dat, err := json.Marshal(Err)
+	if err != nil {
+		log.Printf("error marshalling JSON @respondWithJSON")
+		w.WriteHeader(500)
+		return
+	}
+	w.WriteHeader(int(Err.StatusCode))
+	w.Write(dat)
+}
+
+//
+//
+//
+
+func RespondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
+	w.Header().Set("Content-type", "application/json")
+	dat, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("error marshalling JSON @respondWithJSON")
+		w.WriteHeader(500)
+		return
+	}
+	w.WriteHeader(code)
+	w.Write(dat)
 }
 
 var (
