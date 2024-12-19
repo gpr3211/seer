@@ -10,27 +10,31 @@ import (
 	"time"
 
 	"github.com/gpr3211/seer/pkg/batcher"
-	"github.com/gpr3211/seer/tower/internal/metadata"
 )
+
+type FullData map[string]map[string]batcher.BatchStats
 
 type Client struct {
 	httpClient http.Client
-	Nurse      *metadata.ServiceHealth
-	BufferData metadata.ServiceData
+	Buffer     FullData
 	mu         *sync.RWMutex
 }
 
 func NewClient() Client {
-	health := metadata.ServiceHealth{"forex": true, "usdata": true, "crypto": true}
-	buffer := metadata.ServiceData{"forex": []batcher.BatchStats{}, "usdata": []batcher.BatchStats{}, "crypto": []batcher.BatchStats{}}
+
+	data := make(FullData)
+	data["crypto"] = make(map[string]batcher.BatchStats)
+
+	//	data["forex"] = make(map[string]batcher.BatchStats)
+
+	data["usdata"] = make(map[string]batcher.BatchStats)
 
 	return Client{
 		httpClient: http.Client{
 			Timeout: time.Second * 30,
 		},
-		Nurse:      &health,
-		BufferData: buffer,
-		mu:         &sync.RWMutex{},
+		Buffer: data,
+		mu:     &sync.RWMutex{},
 	}
 }
 
@@ -45,9 +49,10 @@ func (c *Client) FetchLatest(service string) {
 	path := ""
 	switch service {
 	case "forex":
-		path = "http://localhost:6971/seer/forex/v1/buff"
+		return
+		//		path = "http://localhost:6971/seer/forex/v1/buff"
 
-	case "ustrade":
+	case "usdata":
 		path = "http://localhost:6970/seer/usdata/v1/buff"
 
 	case "crypto":
@@ -78,25 +83,28 @@ func (c *Client) FetchLatest(service string) {
 		return
 	}
 	c.mu.Lock()
-	c.BufferData[service] = stats
+	for _, k := range stats {
+		c.Buffer[service][k.Symbol] = k
+	}
 	c.mu.Unlock()
 
-	fmt.Printf("Latests stats for %s Updated at %v", service, time.Now())
+	fmt.Printf("Latests stats for %s Updated at %v\n", service, time.Now())
 	return
 }
 
 func (c *Client) FetchAllStats() {
 
-	for k := range c.BufferData {
+	for k := range c.Buffer {
 		c.FetchLatest(k)
 	}
 	log.Println("Full Fetch complete")
 	log.Printf("Printing full stats === \n")
 
-	for k, v := range c.BufferData {
-		fmt.Printf("\nPRITNING STATS FOR  %s", k)
+	for k, v := range c.Buffer {
+		fmt.Printf("\nPRITNING STATS FOR  %s\n", k)
 		for _, stat := range v {
-			fmt.Printf("Symbol: %s\n Open: %v\n Close: %v\n Time: %v", stat.Symbol, stat.Open, stat.Close, stat.EndTime)
+			t := time.UnixMilli(stat.EndTime)
+			fmt.Printf("\nSymbol: %s\n Open: %v\n Close: %v\nLow: %v\nHigh: %v Time: %v\n", stat.Symbol, stat.Open, stat.Close, stat.Low, stat.High, t)
 		}
 	}
 	return

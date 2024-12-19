@@ -58,8 +58,6 @@ func (s *Server) StartServer() {
 		}
 	}()
 
-	fmt.Println("Ticker stopped")
-
 	mux := http.NewServeMux()
 	//	mux.HandleFunc("GET /seer/forex/v1/health", s.HandleReady)
 	//	mux.HandleFunc("POST /seer/forex/v1/subscribe", s.HandleSubscriptions)

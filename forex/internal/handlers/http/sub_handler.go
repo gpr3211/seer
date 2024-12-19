@@ -27,7 +27,6 @@ func (s *Server) HandleStats(w http.ResponseWriter, r *http.Request) {
 	for _, k := range s.Client.Buffer {
 		out = append(out, k)
 	}
-
 	respondWithJSON(w, 200, out)
 	return
 
