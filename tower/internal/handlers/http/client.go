@@ -20,6 +20,23 @@ type Client struct {
 	mu         *sync.RWMutex
 }
 
+// GetExchanges returns an array of the exchanges
+func (f FullData) GetExchanges() []string {
+
+	out := make([]string, 0, len(f))
+	for k := range f {
+		out = append(out, k)
+	}
+	return out
+}
+func (f FullData) GetSymbols(exchange string) []string {
+	syms := []string{}
+	for k := range f[exchange] {
+		syms = append(syms, k)
+	}
+	return syms
+}
+
 func NewClient() Client {
 
 	data := make(FullData)
