@@ -85,8 +85,18 @@ func (s *Server) StartServer() {
 				s.mu.RLock()
 				for _, user := range s.User {
 					// Check if connection is still alive
+					// TODO FIX THIS SHIT
 					if err := user.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+						s.mu.Lock()
 						log.Printf("User %d connection dead, skipping", user.ID)
+						newUsers := []*Subscriber{}
+						for _, us := range s.User {
+							if us.ID != user.ID {
+								newUsers = append(newUsers, us)
+							}
+						}
+						s.User = newUsers
+						s.mu.Unlock()
 						continue
 					}
 
@@ -197,6 +207,17 @@ func (s *Server) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 					log.Printf("Error writing error message: %v", err)
 				}
 			}
+		case "unsubscribe":
+			s.mu.RLock()
+			new := []string{}
+			for _, item := range sub.Subs[params.Exchange] {
+				if item != params.Symbol {
+					new = append(new, item)
+				}
+			}
+			sub.Subs[params.Exchange] = new
+			s.mu.RUnlock()
+			c.WriteJSON(tower.EzError(200)("Unsubbed from " + params.Symbol))
 		}
 	}
 }
