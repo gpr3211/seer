@@ -47,7 +47,6 @@ func (s *Server) StartServer() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /seer/forex/v1/health", s.HandleReady)
 	mux.HandleFunc("POST /seer/forex/v1/subscribe", s.HandleSubscriptions)
-
 	mux.HandleFunc("GET /seer/forex/v1/buff", s.HandleStats)
 	s.Srv.Handler = mux
 

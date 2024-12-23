@@ -56,7 +56,6 @@ type Config struct {
 	key     string
 	*SocketChannels
 	Socket *websocket.Conn
-
 	Buffer map[string]batcher.BatchStats
 }
 
@@ -64,8 +63,7 @@ func NewConfig() *Config {
 	return &Config{
 		Client:  NewClient(1),
 		Symbols: []string{"TSLA", "AAPL", "MSFT"},
-
-		Buffer: (map[string]batcher.BatchStats{}),
+		Buffer:  (map[string]batcher.BatchStats{}),
 	}
 }
 
@@ -110,9 +108,8 @@ func (cfg *Config) startSocket() error {
 				}
 				for _, batch := range batches {
 					stats := batcher.GetBatchStatistics(batch, 1)
-					fmt.Println("INSERT ADDING US-Trade STATS ")
+					cfg.Buffer[stats.Symbol] = stats
 					batcher.InsertBatch(stats, cfg.DB, "US")
-					fmt.Println("Insert complete US-Trade:", stats.Symbol, stats.EndTime)
 				}
 			}
 			return nil
