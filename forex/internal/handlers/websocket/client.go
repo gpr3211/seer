@@ -1,8 +1,10 @@
 package websocket
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -13,8 +15,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/lib/pq"
-
 	"github.com/gorilla/websocket"
 	"github.com/gpr3211/seer/forex/pkg/model"
 	"github.com/gpr3211/seer/pkg/batcher"
@@ -22,6 +22,7 @@ import (
 	"github.com/gpr3211/seer/pkg/database"
 	"github.com/gpr3211/seer/pkg/writer"
 	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
 type Client struct {
@@ -111,6 +112,8 @@ func (cfg *Config) startSocket() error {
 
 					cfg.Buffer[stats.Symbol] = stats
 					batcher.InsertBatch(stats, cfg.DB, "FOREX")
+					cfg.SendStats(stats)
+					// TODO insert post to tower
 				}
 			}
 			return nil
@@ -165,6 +168,35 @@ func (cfg *Config) startSocket() error {
 	// Block and wait
 	<-cfg.Done
 	return nil
+}
+
+func (cfg *Config) SendStats(stats batcher.BatchStats) {
+
+	path := "http//localhost:4269/seer/tower/update/forex"
+
+	data, err := json.Marshal(stats)
+	if err != nil {
+		return
+	}
+
+	req, err := http.NewRequest("POST", path, bytes.NewBuffer(data))
+	if err != nil {
+		return
+	}
+
+	req.Header.Set("Content-type", "application/json")
+	resp, err := cfg.Client.httpClient.Do(req)
+	if err != nil {
+		fmt.Printf("ERROR: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode > 399 {
+		log.Println("bad request")
+		return
+	}
+	log.Println("Batch stat post success.")
+
 }
 
 // SaveForexToDB saves a forex tick to the forex_tick table
