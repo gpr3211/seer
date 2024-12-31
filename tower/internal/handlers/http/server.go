@@ -4,14 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
+	_ "github.com/lib/pq"
 	"log"
 	"math/rand/v2"
 	"net/http"
 	"sync"
 	"time"
-
-	"github.com/gorilla/websocket"
-	_ "github.com/lib/pq"
 )
 
 type Parameters struct {
@@ -93,6 +92,7 @@ func (s *Server) StartServer() {
 		return
 	}
 }
+
 func (s *Server) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
