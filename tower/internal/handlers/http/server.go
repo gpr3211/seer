@@ -2,16 +2,15 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
+	_ "github.com/lib/pq"
 	"log"
 	"math/rand/v2"
 	"net/http"
 	"sync"
 	"time"
-
-	"github.com/gorilla/websocket"
-	"github.com/gpr3211/seer/tower"
-	_ "github.com/lib/pq"
 )
 
 type Parameters struct {
@@ -68,55 +67,6 @@ func (s *Server) StartServer() {
 	s.wg.Add(1)
 	defer s.wg.Done()
 
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	done := make(chan bool)
-
-	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			case <-ticker.C:
-				fmt.Println("Tick")
-				s.Client.FetchAllStats()
-
-				s.mu.RLock()
-				for _, user := range s.User {
-					// Check if connection is still alive
-					// TODO FIX THIS SHIT
-					if err := user.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-						s.mu.Lock()
-						log.Printf("User %d connection dead, skipping", user.ID)
-						newUsers := []*Subscriber{}
-						for _, us := range s.User {
-							if us.ID != user.ID {
-								newUsers = append(newUsers, us)
-							}
-						}
-						s.User = newUsers
-						s.mu.Unlock()
-						continue
-					}
-
-					for exchange, symbols := range user.Subs {
-						for _, symbol := range symbols {
-							if stats, ok := s.Client.Buffer[exchange][symbol]; ok {
-								if err := user.Conn.WriteJSON(stats); err != nil {
-									log.Printf("Error sending data to user %d: %v", user.ID)
-								} else {
-									log.Printf("Sent %s:%s data to user %d", exchange, symbol, user.ID)
-								}
-							}
-						}
-					}
-				}
-				s.mu.RUnlock()
-			}
-		}
-	}()
-
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /seer/tower/ws", s.handleSubscribe)
 	s.Srv.Handler = mux
@@ -171,53 +121,54 @@ func (s *Server) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 	s.User = append(s.User, sub)
 	s.mu.Unlock()
 
-	params := Parameters{}
-
 	for {
-		err := c.ReadJSON(&params)
+		var rawMsg map[string]interface{}
+		err := c.ReadJSON(&rawMsg)
 		if err != nil {
-			log.Printf("Error reading JSON: %v", err)
-			c.WriteJSON(tower.EzError(407)("bad json"))
-			continue
-		}
-
-		switch params.Action {
-		case "subscribe":
-			s.mu.RLock()
-			symbols := s.Client.Buffer.GetSymbols(params.Exchange)
-			s.mu.RUnlock()
-
-			found := false
-			for _, sym := range symbols {
-				if sym == params.Symbol {
-					s.mu.Lock()
-					sub.Subs[params.Exchange] = append(sub.Subs[params.Exchange], params.Symbol)
-					s.mu.Unlock()
-					found = true
-					break
-				}
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
+				log.Printf("Unexpected websocket error: %v", err)
 			}
-
-			if found {
-				if err := c.WriteJSON(tower.EzError(200)("Subscribed successfully")); err != nil {
-					log.Printf("Error writing success message: %v", err)
+			// Normal closure or going away - just return from handler
+			return
+		} // Check if it's a SubMsg based on the "action" field
+		if action, ok := rawMsg["action"].(string); ok {
+			switch action {
+			case "subscribe", "unsubscribe":
+				var subMsg SubMsg
+				if err := mapToStruct(rawMsg, &subMsg); err == nil {
+					s.manageSubMsg(subMsg, sub, c)
+				} else {
+					c.WriteJSON(APIMsg{StatusCode: 400, Msg: "Invalid subscription message"})
 				}
+			default:
+				c.WriteJSON(APIMsg{StatusCode: 407, Msg: "Unknown action"})
+			}
+		} else if isStatUpdate(rawMsg) {
+			// If it's not an action, check if it's likely a StatUpdate
+			var statUpdate StatUpdate
+			if err := mapToStruct(rawMsg, &statUpdate); err == nil {
+				s.manageStatUpdate(statUpdate)
 			} else {
-				if err := c.WriteJSON(tower.EzError(407)("symbol not found")); err != nil {
-					log.Printf("Error writing error message: %v", err)
-				}
+				c.WriteJSON(APIMsg{StatusCode: 400, Msg: "Invalid stats update message"})
 			}
-		case "unsubscribe":
-			s.mu.RLock()
-			new := []string{}
-			for _, item := range sub.Subs[params.Exchange] {
-				if item != params.Symbol {
-					new = append(new, item)
-				}
-			}
-			sub.Subs[params.Exchange] = new
-			s.mu.RUnlock()
-			c.WriteJSON(tower.EzError(200)("Unsubbed from " + params.Symbol))
+		} else {
+			// Default case for unknown message formats
+			c.WriteJSON(APIMsg{StatusCode: 407, Msg: "Unknown message format"})
 		}
 	}
+}
+func isStatUpdate(data map[string]interface{}) bool {
+	// Check for essential fields that would indicate it's a StatUpdate
+	_, hasSymbol := data["symbol"]
+	_, hasSequence := data["close"]
+	return hasSymbol && hasSequence
+}
+
+// Helper function to map raw JSON into a struct
+func mapToStruct(data map[string]interface{}, target interface{}) error {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(jsonData, target)
 }

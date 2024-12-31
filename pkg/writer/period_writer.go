@@ -9,93 +9,85 @@ import (
 )
 
 type PeriodWriter func(map[string][]batcher.SocketMsg) error
+
+// AddData adds a new data item to the buffer
 type PeriodicDataWriter struct {
-	buffer        map[string][]batcher.SocketMsg
-	bufferMutex   sync.RWMutex
-	writeInterval time.Duration
-	maxBufferSize int
-	writeFn       func(map[string][]batcher.SocketMsg) error
-	socketType    string
+	currentBatch map[string]batcher.TimeBatch
+	bufferMutex  sync.RWMutex
+	writeFn      func(map[string][]batcher.SocketMsg) error
+	socketType   string
 }
 
-// NewPeriodicDataWriter creates a new periodic data writer
 func NewPeriodicDataWriter(
 	writeInterval time.Duration,
-	maxBufferSize int,
 	exchange string,
 	writeFn func(map[string][]batcher.SocketMsg) error) *PeriodicDataWriter {
+
 	pw := &PeriodicDataWriter{
-		buffer:        make(map[string][]batcher.SocketMsg),
-		writeInterval: writeInterval,
-		maxBufferSize: maxBufferSize,
-		writeFn:       writeFn,
-		socketType:    exchange,
+		currentBatch: make(map[string]batcher.TimeBatch),
+		writeFn:      writeFn,
+		socketType:   exchange,
 	}
 
 	go pw.startPeriodicWrite()
 	return pw
 }
-
-// AddData adds a new data item to the buffer
 func (pw *PeriodicDataWriter) AddData(data batcher.SocketMsg) error {
-	//	fmt.Println("Adding data to period buff", data.GetSym())
 	pw.bufferMutex.Lock()
 	defer pw.bufferMutex.Unlock()
 
 	symbol := data.GetSym()
+	tickTime := time.UnixMilli(data.GetTime()).UTC()
 
-	pw.buffer[symbol] = append(pw.buffer[symbol], data)
-
-	// Check if buffer should be written
-	if len(pw.buffer[symbol]) >= pw.maxBufferSize {
-		return pw.writeBufferForSymbol(symbol)
+	// Initialize or roll over batch if needed
+	if batch, exists := pw.currentBatch[symbol]; !exists || tickTime.After(batch.EndTime) {
+		startTime := tickTime.Truncate(time.Minute)
+		pw.currentBatch[symbol] = batcher.TimeBatch{
+			StartTime: startTime,
+			EndTime:   startTime.Add(time.Minute),
+			Ticks:     []batcher.SocketMsg{data},
+		}
+	} else {
+		batch = pw.currentBatch[symbol]
+		batch.Ticks = append(batch.Ticks, data)
+		pw.currentBatch[symbol] = batch
 	}
 
 	return nil
-}
+} // writeBuffer writes the current buffer contents
+/*
+	func (pw *PeriodicDataWriter) writeBufferForSymbol(symbol string) error {
+		if len(pw.buffer[symbol]) == 0 {
+			return nil
+		}
+		bufferToWrite := make(map[string][]batcher.SocketMsg)
+		bufferToWrite[symbol] = make([]batcher.SocketMsg, len(pw.buffer[symbol]))
+		copy(bufferToWrite[symbol], pw.buffer[symbol])
 
-// writeBuffer writes the current buffer contents
-func (pw *PeriodicDataWriter) writeBufferForSymbol(symbol string) error {
-	if len(pw.buffer[symbol]) == 0 {
-		return nil
+		// Clear the original buffer for this symbol
+		pw.buffer[symbol] = pw.buffer[symbol][:0]
+
+		// Call the write function with the specific symbol's buffer
+		return pw.writeFn(bufferToWrite)
 	}
-	bufferToWrite := make(map[string][]batcher.SocketMsg)
-	bufferToWrite[symbol] = make([]batcher.SocketMsg, len(pw.buffer[symbol]))
-	copy(bufferToWrite[symbol], pw.buffer[symbol])
-
-	// Clear the original buffer for this symbol
-	pw.buffer[symbol] = pw.buffer[symbol][:0]
-
-	// Call the write function with the specific symbol's buffer
-	return pw.writeFn(bufferToWrite)
-}
-
+*/
 func (pw *PeriodicDataWriter) startPeriodicWrite() {
-	ticker := time.NewTicker(pw.writeInterval)
+	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
 	for range ticker.C {
 		pw.bufferMutex.Lock()
-
-		// Prepare buffers to write
-		buffersToWrite := make(map[string][]batcher.SocketMsg)
-		for symbol, buffer := range pw.buffer {
-			if len(buffer) > 0 {
-				buffersToWrite[symbol] = make([]batcher.SocketMsg, len(buffer))
-				copy(buffersToWrite[symbol], buffer)
-				pw.buffer[symbol] = pw.buffer[symbol][:0]
+		for symbol, batch := range pw.currentBatch {
+			if len(batch.Ticks) > 0 {
+				buffersToWrite := make(map[string][]batcher.SocketMsg)
+				buffersToWrite[symbol] = batch.Ticks
+				pw.writeFn(buffersToWrite) // Your original writeFn handles the batching and stats
 			}
 		}
+		pw.currentBatch = make(map[string]batcher.TimeBatch)
 		pw.bufferMutex.Unlock()
-
-		// Write buffers outside of the mutex lock
-		if len(buffersToWrite) > 0 {
-			if err := pw.writeFn(buffersToWrite); err != nil {
-				log.Printf("Error writing buffers: %v", err)
-			}
-		}
 	}
-} // SaveBatchedStats processes incoming ticks, batches them, and saves the statistics
+} // SaveBatchedStats saves incoming ticks, batches them, and saves the statistics
 func SaveBatchedStats(tickChan <-chan interface{}, saveFn func(batcher.BatchStats) error) {
 	// Collect ticks to batch
 	var ticks []batcher.SocketMsg
